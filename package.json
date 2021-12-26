@@ -1,0 +1,16 @@
+{
+    "name": "room-realm",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "build": "tsc"
+    },
+    "dependencies": {
+        "@types/node": "^16.11.4",
+        "express": "^4.17.1",
+        "ostracod-multiplayer": "github:ostracod/ostracod-multiplayer#semver:^1.4.0"
+    },
+    "devDependencies": {
+        "typescript": "^4.3.4"
+    }
+}

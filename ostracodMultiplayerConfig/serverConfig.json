@@ -1,0 +1,7 @@
+{
+    "gameName": "Room Realm",
+    "author": "Jack Eisenmann",
+    "port": 2634,
+    "welcomeViewFile": "welcome.html",
+    "stylesheets": []
+}
