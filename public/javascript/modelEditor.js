@@ -96,15 +96,12 @@ const initializePage = async () => {
     
     await initializeGraphics();
     
-    const gridSize = textureSheetSize;
-    const gridColors = [];
-    for (let index = 0; index < textureSheetImageDataList.length; index += 4) {
-        const r = textureSheetImageDataList[index];
-        const g = textureSheetImageDataList[index + 1];
-        const b = textureSheetImageDataList[index + 2];
-        gridColors.push(new Color(r, g, b));
-    }
-    const colorGrid = new ColorGrid(gridSize, gridSize, gridColors);
+    const colorGrid = new ColorGrid(
+        new Dim(100, 100),
+        new Pos(0, 0),
+        new Dim(50, 50),
+        0.05,
+    );
     testBody = new Body(new Loc(0, 0, 200), createRotByAngles(0, 0, 0), [
         new Panel(new Loc(-50, -50, -50), createRotByAngles(0, 0, 0), colorGrid),
         new Panel(new Loc(-50, 50, 50), createRotByAngles(Math.PI, 0, 0), colorGrid),

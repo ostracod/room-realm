@@ -11,6 +11,14 @@ let textureSheetContext;
 let textureSheetImageData;
 let textureSheetImageDataList;
 
+class Dim {
+    
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
 class Loc {
     
     constructor(x, y, z) {
@@ -130,17 +138,28 @@ class Rot {
 
 class ColorGrid {
     
-    constructor(width, height, colors) {
-        this.width = width;
-        this.height = height;
-        this.colors = colors;
+    constructor(dim, cropPos, cropDim, noise) {
+        this.dim = dim;
+        this.cropDim = cropDim;
+        this.colors = [];
+        for (let offsetY = 0; offsetY < cropDim.y; offsetY++) {
+            for (let offsetX = 0; offsetX < cropDim.x; offsetX++) {
+                const index = (cropPos.x + offsetX + (cropPos.y + offsetY) * textureSheetSize) * 4;
+                const r = textureSheetImageDataList[index];
+                const g = textureSheetImageDataList[index + 1];
+                const b = textureSheetImageDataList[index + 2];
+                const color = new Color(r, g, b);
+                applyColorNoise(color, noise);
+                this.colors.push(color);
+            }
+        }
     }
     
     getColor(pos) {
         const x = Math.floor(pos.x);
         const y = Math.floor(pos.y);
-        if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-            return this.colors[x + y * this.width];
+        if (x >= 0 && x < this.dim.x && y >= 0 && y < this.dim.y) {
+            return this.colors[x % this.cropDim.x + (y % this.cropDim.y) * this.cropDim.x];
         } else {
             return null
         }
@@ -196,21 +215,20 @@ class Panel {
         }
         const panelOffset = new Pos(0, 0);
         const canvasPos = new Pos(0, 0);
-        const panelWidth = this.colorGrid.width;
-        const panelHeight = this.colorGrid.height;
+        const panelDim = this.colorGrid.dim;
         
         // Determine the Loc of each vertex in the panel.
         const vertexLocs = [];
         let hasPositiveZ = false;
         for (
             panelOffset.y = 0;
-            panelOffset.y <= panelHeight;
-            panelOffset.y += panelHeight
+            panelOffset.y <= panelDim.y;
+            panelOffset.y += panelDim.y
         ) {
             for (
                 panelOffset.x = 0;
-                panelOffset.x <= panelWidth;
-                panelOffset.x += panelWidth
+                panelOffset.x <= panelDim.x;
+                panelOffset.x += panelDim.x
             ) {
                 const vertexLoc = this.getLoc(panelOffset);
                 vertexLocs.push(vertexLoc);
@@ -386,6 +404,17 @@ const clearImageData = () => {
 
 const drawImageData = () => {
     context.putImageData(imageData, 0, 0);
+};
+
+const applyColorNoise = (color, noise) => {
+    if (noise <= 0) {
+        return;
+    }
+    const scale = 1 - 2 * noise * Math.random();
+    ["r", "g", "b"].forEach((name) => {
+        const value = Math.round(color[name] * scale);
+        color[name] = Math.max(0, Math.min(value, 255));
+    });
 };
 
 const initializeGraphics = async () => {
