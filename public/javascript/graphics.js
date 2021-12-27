@@ -194,11 +194,19 @@ class Texture {
 
 class Panel {
     
-    constructor(loc, rot, texture, drawBothSides = false) {
+    constructor(loc, texture, angles = null, drawBothSides = false) {
         this.loc = loc;
-        this.rot = rot;
         this.texture = texture;
         this.drawBothSides = drawBothSides;
+        this.rot = null;
+        this.angles = null;
+        if (angles !== null) {
+            this.setRotAngles(angles);
+        }
+    }
+    
+    setRot(rot) {
+        this.rot = rot;
         if (this.drawBothSides) {
             this.shouldDraw = true;
         } else {
@@ -215,11 +223,18 @@ class Panel {
         }
     }
     
+    setRotAngles(angles) {
+        this.angles = angles;
+        this.setRot(this.angles.createRot());
+    }
+    
     transformByOffsets(locOffset, rotOffset) {
         const loc = rotOffset.rotateLoc(this.loc);
         const rot = rotOffset.rotateRot(this.rot);
         loc.add(locOffset);
-        return new Panel(loc, rot, this.texture, this.drawBothSides);
+        const output = new Panel(loc, this.texture, null, this.drawBothSides);
+        output.setRot(rot);
+        return output;
     }
     
     getLocZ(offset) {
