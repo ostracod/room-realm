@@ -2,9 +2,19 @@
     <canvas id="canvas" style="border: 3px #888888 solid;"></canvas>
 </p>
 <p>
-    <button onclick="isPaused = true;">Pause</button>
-    <button onclick="isPaused = false;">Resume</button>
+    Control mode: <span id="controlMode"></span>
 </p>
+<p>
+    Controls:
+<p>
+<ul>
+    <li><strong>1 + 2</strong> = Change control mode</li>
+    <li><strong>WASDEC</strong> = Move camera or panel</li>
+    <li><strong>Arrow keys</strong> = Rotate camera or panel</li>
+    <li><strong>Enter</strong> = Create new panel</li>
+    <li><strong>Backspace</strong> = Delete selected panel</li>
+    <li><strong>[ + ]</strong> = Select panel</li>
+</ul>
 <script>
 
 initializePage();

@@ -19,7 +19,7 @@ class Dim {
     }
 }
 
-class Loc {
+class Vector {
     
     constructor(x, y, z) {
         this.x = x;
@@ -28,8 +28,23 @@ class Loc {
     }
     
     copy() {
-        return new Loc(this.x, this.y, this.z);
+        return new this.constructor(this.x, this.y, this.z);
     }
+    
+    add(vector) {
+        this.x += vector.x;
+        this.y += vector.y;
+        this.z += vector.z;
+    }
+    
+    subtract(vector) {
+        this.x -= vector.x;
+        this.y -= vector.y;
+        this.z -= vector.z;
+    }
+}
+
+class Loc extends Vector {
     
     getCoord(index) {
         if (index === 0) {
@@ -42,18 +57,6 @@ class Loc {
         throw new Error("Invalid Loc coordinate index.");
     }
     
-    add(loc) {
-        this.x += loc.x;
-        this.y += loc.y;
-        this.z += loc.z;
-    }
-    
-    subtract(loc) {
-        this.x -= loc.x;
-        this.y -= loc.y;
-        this.z -= loc.z;
-    }
-    
     invert() {
         this.x = -this.x;
         this.y = -this.y;
@@ -62,6 +65,29 @@ class Loc {
     
     dotProduct(loc) {
         return this.x * loc.x + this.y * loc.y + this.z * loc.z;
+    }
+}
+
+class RotAngles extends Vector {
+    
+    createRot() {
+        const sinX = Math.sin(this.x);
+        const cosX = Math.cos(this.x);
+        const sinY = Math.sin(this.y);
+        const cosY = Math.cos(this.y);
+        const sinZ = Math.sin(this.z);
+        const cosZ = Math.cos(this.z);
+        return new Rot([
+            cosY * cosZ + sinY * sinX * sinZ,
+            -cosY * sinZ + sinY * sinX * cosZ,
+            sinY * cosX,
+            cosX * sinZ,
+            cosX * cosZ,
+            -sinX,
+            -sinY * cosZ + cosY * sinX * sinZ,
+            sinY * sinZ + cosY * sinX * cosZ,
+            cosY * cosX,
+        ]);
     }
 }
 
@@ -136,9 +162,9 @@ class Rot {
     }
 }
 
-class ColorGrid {
+class Texture {
     
-    constructor(dim, cropPos, cropDim, noise) {
+    constructor(dim, cropPos, cropDim, noise = 0) {
         this.dim = dim;
         this.cropDim = cropDim;
         this.colors = [];
@@ -168,10 +194,10 @@ class ColorGrid {
 
 class Panel {
     
-    constructor(loc, rot, colorGrid, drawBothSides = false) {
+    constructor(loc, rot, texture, drawBothSides = false) {
         this.loc = loc;
         this.rot = rot;
-        this.colorGrid = colorGrid;
+        this.texture = texture;
         this.drawBothSides = drawBothSides;
         if (this.drawBothSides) {
             this.shouldDraw = true;
@@ -193,7 +219,7 @@ class Panel {
         const loc = rotOffset.rotateLoc(this.loc);
         const rot = rotOffset.rotateRot(this.rot);
         loc.add(locOffset);
-        return new Panel(loc, rot, this.colorGrid, this.drawBothSides);
+        return new Panel(loc, rot, this.texture, this.drawBothSides);
     }
     
     getLocZ(offset) {
@@ -215,7 +241,7 @@ class Panel {
         }
         const panelOffset = new Pos(0, 0);
         const canvasPos = new Pos(0, 0);
-        const panelDim = this.colorGrid.dim;
+        const panelDim = this.texture.dim;
         
         // Determine the Loc of each vertex in the panel.
         const vertexLocs = [];
@@ -277,7 +303,7 @@ class Panel {
                 const c6 = this.basisY.y - this.basisY.z * canvasOffset.y;
                 panelOffset.y = (c5 - c1 * c2 / c4) / (c1 * c3 / c4 - c6);
                 panelOffset.x = (c2 + panelOffset.y * c3) / c4;
-                const color = this.colorGrid.getColor(panelOffset);
+                const color = this.texture.getColor(panelOffset);
                 if (color === null) {
                     continue;
                 }
@@ -329,14 +355,13 @@ class Scene {
     constructor(bodies) {
         this.bodies = bodies;
         this.cameraLoc = new Loc(0, 0, 0);
-        this.cameraAngleX = 0;
-        this.cameraAngleY = 0;
+        this.cameraAngles = new RotAngles(0, 0, 0);
         this.cameraRot = null;
     }
     
     getCameraRot() {
         if (this.cameraRot === null) {
-            this.cameraRot = createRotByAngles(this.cameraAngleX, this.cameraAngleY, 0);
+            this.cameraRot = this.cameraAngles.createRot();
         }
         return this.cameraRot;
     }
@@ -351,9 +376,8 @@ class Scene {
         });
     }
     
-    setCameraAngles(angleX, angleY) {
-        this.cameraAngleX = angleX;
-        this.cameraAngleY = angleY;
+    setCameraAngles(angles) {
+        this.cameraAngles = angles;
         this.cameraRot = null;
     }
 }
@@ -367,23 +391,8 @@ const transposeRotMatrix = (matrix) => {
 };
 
 const createRotByAngles = (x, y, z) => {
-    const sinX = Math.sin(x);
-    const cosX = Math.cos(x);
-    const sinY = Math.sin(y);
-    const cosY = Math.cos(y);
-    const sinZ = Math.sin(z);
-    const cosZ = Math.cos(z);
-    return new Rot([
-        cosY * cosZ + sinY * sinX * sinZ,
-        -cosY * sinZ + sinY * sinX * cosZ,
-        sinY * cosX,
-        cosX * sinZ,
-        cosX * cosZ,
-        -sinX,
-        -sinY * cosZ + cosY * sinX * sinZ,
-        sinY * sinZ + cosY * sinX * cosZ,
-        cosY * cosX,
-    ]);
+    const angles = new RotAngles(x, y, z);
+    return angles.createRot();
 }
 
 const convertLocToCanvasPos = (destination, loc) => {

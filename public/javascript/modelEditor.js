@@ -2,86 +2,132 @@
 const canvasWidth = 300;
 const canvasHeight = 200;
 const canvasPixelScale = 1 / 2;
-const walkSpeed = 10;
+const walkSpeed = 5;
+const controlModes = { camera: 1, panel: 2 };
+let controlMode;
 let canvas;
 let context;
-let testBody;
-let testScene;
-let testAngle = 0;
-let isPaused = false;
+let scene;
 
-const moveCamera = (x, y, z) => {
-    const cosY = Math.cos(testScene.cameraAngleY);
-    const sinY = Math.sin(testScene.cameraAngleY);
-    const { cameraLoc } = testScene;
-    cameraLoc.x += x * cosY + z * sinY;
-    cameraLoc.y += y;
-    cameraLoc.z += x * -sinY + z * cosY;
+const setControlMode = (mode) => {
+    controlMode = mode;
+    const text = (controlMode === controlModes.camera) ? "Camera" : "Panel";
+    document.getElementById("controlMode").innerHTML = text;
 };
 
-const rotateCamera = (x, y) => {
-    let angleX = testScene.cameraAngleX + x;
-    angleX = Math.max(-Math.PI / 2, Math.min(angleX, Math.PI / 2));
-    const angleY = testScene.cameraAngleY + y;
-    testScene.setCameraAngles(angleX, angleY);
-};
-
-const timerEvent = () => {
-    if (isPaused) {
-        return;
+const controlLoc = (x, y, z) => {
+    const locOffset = new Loc(x, y, z);
+    if (controlMode === controlModes.camera) {
+        moveCamera(locOffset);
+    } else {
+        
     }
+};
+
+const controlRot = (x, y) => {
+    const anglesOffset = new RotAngles(x, y, 0);
+    if (controlMode === controlModes.camera) {
+        rotateCamera(anglesOffset);
+    } else {
+        
+    }
+};
+
+const moveCamera = (locOffset) => {
+    const cosY = Math.cos(scene.cameraAngles.y);
+    const sinY = Math.sin(scene.cameraAngles.y);
+    const { cameraLoc } = scene;
+    cameraLoc.x += locOffset.x * cosY + locOffset.z * sinY;
+    cameraLoc.y += locOffset.y;
+    cameraLoc.z += locOffset.x * -sinY + locOffset.z * cosY;
+    drawEverything();
+};
+
+const rotateCamera = (anglesOffset) => {
+    const angles = scene.cameraAngles.copy();
+    angles.add(anglesOffset);
+    angles.x = Math.max(-Math.PI / 2, Math.min(angles.x, Math.PI / 2));
+    scene.setCameraAngles(angles);
+    drawEverything();
+};
+
+const drawEverything = () => {
     clearImageData();
-    testBody.rot = createRotByAngles(testAngle / 4, testAngle / 2, testAngle);
-    testAngle += 0.05;
-    testScene.draw();
+    scene.draw();
     drawImageData();
 }
 
 const keyDownEvent = (event) => {
     const keyCode = event.which;
+    // 1.
+    if (keyCode === 49) {
+        setControlMode(controlModes.camera);
+    }
+    // 2.
+    if (keyCode === 50) {
+        setControlMode(controlModes.panel);
+    }
     // A.
     if (keyCode === 65) {
-        moveCamera(-walkSpeed, 0, 0);
+        controlLoc(-walkSpeed, 0, 0);
     }
     // D.
     if (keyCode === 68) {
-        moveCamera(walkSpeed, 0, 0);
+        controlLoc(walkSpeed, 0, 0);
     }
     // W.
     if (keyCode === 87) {
-        moveCamera(0, 0, walkSpeed);
+        controlLoc(0, 0, walkSpeed);
     }
     // S.
     if (keyCode === 83) {
-        moveCamera(0, 0, -walkSpeed);
+        controlLoc(0, 0, -walkSpeed);
     }
     // E.
     if (keyCode === 69) {
-        moveCamera(0, -walkSpeed, 0);
+        controlLoc(0, -walkSpeed, 0);
     }
     // C.
     if (keyCode === 67) {
-        moveCamera(0, walkSpeed, 0);
+        controlLoc(0, walkSpeed, 0);
     }
     // Left.
     if (keyCode === 37) {
-        rotateCamera(0, -0.2);
+        controlRot(0, -0.2);
         return false;
     }
     // Right.
     if (keyCode === 39) {
-        rotateCamera(0, 0.2);
+        controlRot(0, 0.2);
         return false;
     }
     // Up.
     if (keyCode === 38) {
-        rotateCamera(0.2, 0);
+        controlRot(0.2, 0);
         return false;
     }
     // Down.
     if (keyCode === 40) {
-        rotateCamera(-0.2, 0);
+        controlRot(-0.2, 0);
         return false;
+    }
+    // Enter.
+    if (keyCode === 13) {
+        
+        return false;
+    }
+    // Backspace.
+    if (keyCode == 8) {
+        
+        return false;
+    }
+    // Left bracket.
+    if (keyCode == 219) {
+        
+    }
+    // Right bracket.
+    if (keyCode == 221) {
+        
     }
 }
 
@@ -96,23 +142,20 @@ const initializePage = async () => {
     
     await initializeGraphics();
     
-    const colorGrid = new ColorGrid(
-        new Dim(100, 100),
-        new Pos(0, 0),
-        new Dim(50, 50),
-        0.05,
-    );
-    testBody = new Body(new Loc(0, 0, 200), createRotByAngles(0, 0, 0), [
-        new Panel(new Loc(-50, -50, -50), createRotByAngles(0, 0, 0), colorGrid),
-        new Panel(new Loc(-50, 50, 50), createRotByAngles(Math.PI, 0, 0), colorGrid),
-        new Panel(new Loc(-50, -50, 50), createRotByAngles(-Math.PI / 2, 0, 0), colorGrid),
-        new Panel(new Loc(-50, 50, -50), createRotByAngles(Math.PI / 2, 0, 0), colorGrid),
-        new Panel(new Loc(-50, -50, 50), createRotByAngles(0, Math.PI / 2, 0), colorGrid),
-        new Panel(new Loc(50, -50, -50), createRotByAngles(0, -Math.PI / 2, 0), colorGrid),
+    const originTexture = new Texture(new Dim(2, 2), new Pos(0, 0), new Dim(2, 2));
+    const originBody = new Body(new Loc(0, 0, 0), createRotByAngles(0, 0, 0), [
+        new Panel(new Loc(-1, -1, -1), createRotByAngles(0, 0, 0), originTexture),
+        new Panel(new Loc(-1, 1, 1), createRotByAngles(Math.PI, 0, 0), originTexture),
+        new Panel(new Loc(-1, -1, 1), createRotByAngles(-Math.PI / 2, 0, 0), originTexture),
+        new Panel(new Loc(-1, 1, -1), createRotByAngles(Math.PI / 2, 0, 0), originTexture),
+        new Panel(new Loc(-1, -1, 1), createRotByAngles(0, Math.PI / 2, 0), originTexture),
+        new Panel(new Loc(1, -1, -1), createRotByAngles(0, -Math.PI / 2, 0), originTexture),
     ]);
-    testScene = new Scene([testBody]);
+    scene = new Scene([originBody]);
+    scene.cameraLoc.z = -50;
+    drawEverything();
     
-    setInterval(timerEvent, 50);
+    setControlMode(controlModes.camera);
     window.onkeydown = keyDownEvent;
 }
 
