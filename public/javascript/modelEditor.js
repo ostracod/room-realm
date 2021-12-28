@@ -2,7 +2,6 @@
 const canvasWidth = 300;
 const canvasHeight = 200;
 const canvasPixelScale = 1 / 2;
-const walkSpeed = 5;
 const controlModes = { camera: 1, panel: 2 };
 let controlMode;
 let selectedPanelIndex;
@@ -10,48 +9,11 @@ let canvas;
 let context;
 let modelBody;
 let scene;
+let shiftKeyIsHeld = false;
 
-const setControlMode = (mode) => {
-    controlMode = mode;
-    const text = (controlMode === controlModes.camera) ? "Camera" : "Panel";
-    document.getElementById("controlMode").innerHTML = text;
-};
-
-const controlLoc = (x, y, z) => {
-    const locOffset = new Loc(x, y, z);
-    if (controlMode === controlModes.camera) {
-        moveCamera(locOffset);
-    } else {
-        
-    }
-};
-
-const controlRot = (x, y) => {
-    const anglesOffset = new RotAngles(x, y, 0);
-    if (controlMode === controlModes.camera) {
-        rotateCamera(anglesOffset);
-    } else {
-        
-    }
-};
-
-const moveCamera = (locOffset) => {
-    const cosY = Math.cos(scene.cameraAngles.y);
-    const sinY = Math.sin(scene.cameraAngles.y);
-    const { cameraLoc } = scene;
-    cameraLoc.x += locOffset.x * cosY + locOffset.z * sinY;
-    cameraLoc.y += locOffset.y;
-    cameraLoc.z += locOffset.x * -sinY + locOffset.z * cosY;
-    drawEverything();
-};
-
-const rotateCamera = (anglesOffset) => {
-    const angles = scene.cameraAngles.copy();
-    angles.add(anglesOffset);
-    angles.x = Math.max(-Math.PI / 2, Math.min(angles.x, Math.PI / 2));
-    scene.setCameraAngles(angles);
-    drawEverything();
-};
+const getSelectedPanel = () => (
+    (selectedPanelIndex === null) ? null : modelBody.panels[selectedPanelIndex]
+);
 
 const selectPanel = (index) => {
     selectedPanelIndex = index;
@@ -67,6 +29,74 @@ const selectPanelByOffset = (offset) => {
     }
     const index = Math.max(0, Math.min(selectedPanelIndex + offset, panels.length - 1))
     selectPanel(index);
+};
+
+const setControlMode = (mode) => {
+    controlMode = mode;
+    const text = (controlMode === controlModes.camera) ? "Camera" : "Panel";
+    document.getElementById("controlMode").innerHTML = text;
+};
+
+const controlLoc = (x, y, z) => {
+    const locOffset = new Loc(x, y, z);
+    if (controlMode === controlModes.camera) {
+        const scaleValue = shiftKeyIsHeld ? 10 : 3;
+        locOffset.scale(scaleValue);
+        moveCamera(locOffset);
+    } else {
+        const scaleValue = shiftKeyIsHeld ? 5 : 1;
+        locOffset.scale(scaleValue);
+        movePanel(locOffset);
+    }
+};
+
+const controlRot = (x, y, z) => {
+    const anglesOffset = new RotAngles(x, y, z);
+    if (controlMode === controlModes.camera) {
+        anglesOffset.scale(Math.PI / 16);
+        rotateCamera(anglesOffset);
+    } else {
+        anglesOffset.scale(Math.PI / 8);
+        rotatePanel(anglesOffset);
+    }
+};
+
+const moveCamera = (locOffset) => {
+    const cosY = Math.cos(scene.cameraAngles.y);
+    const sinY = Math.sin(scene.cameraAngles.y);
+    const { cameraLoc } = scene;
+    cameraLoc.x += locOffset.x * cosY + locOffset.z * sinY;
+    cameraLoc.y += locOffset.y;
+    cameraLoc.z += locOffset.x * -sinY + locOffset.z * cosY;
+    drawEverything();
+};
+
+const movePanel = (locOffset) => {
+    const panel = getSelectedPanel();
+    if (panel === null) {
+        return;
+    }
+    panel.loc.add(locOffset);
+    drawEverything();
+};
+
+const rotateCamera = (anglesOffset) => {
+    const angles = scene.cameraAngles.copy();
+    angles.add(anglesOffset);
+    angles.x = Math.max(-Math.PI / 2, Math.min(angles.x, Math.PI / 2));
+    scene.setCameraAngles(angles);
+    drawEverything();
+};
+
+const rotatePanel = (anglesOffset) => {
+    const panel = getSelectedPanel();
+    if (panel === null) {
+        return;
+    }
+    const angles = panel.angles.copy();
+    angles.add(anglesOffset);
+    panel.setRotAngles(angles);
+    drawEverything();
 };
 
 const createPanel = () => {
@@ -97,6 +127,10 @@ const drawEverything = () => {
 
 const keyDownEvent = (event) => {
     const keyCode = event.which;
+    // Shift.
+    if (keyCode === 16) {
+        shiftKeyIsHeld = true;
+    }
     // 1.
     if (keyCode === 49) {
         setControlMode(controlModes.camera);
@@ -107,47 +141,55 @@ const keyDownEvent = (event) => {
     }
     // A.
     if (keyCode === 65) {
-        controlLoc(-walkSpeed, 0, 0);
+        controlLoc(-1, 0, 0);
     }
     // D.
     if (keyCode === 68) {
-        controlLoc(walkSpeed, 0, 0);
+        controlLoc(1, 0, 0);
     }
     // W.
     if (keyCode === 87) {
-        controlLoc(0, 0, walkSpeed);
+        controlLoc(0, 0, 1);
     }
     // S.
     if (keyCode === 83) {
-        controlLoc(0, 0, -walkSpeed);
+        controlLoc(0, 0, -1);
     }
     // E.
     if (keyCode === 69) {
-        controlLoc(0, -walkSpeed, 0);
+        controlLoc(0, -1, 0);
     }
     // C.
     if (keyCode === 67) {
-        controlLoc(0, walkSpeed, 0);
+        controlLoc(0, 1, 0);
     }
     // Left.
     if (keyCode === 37) {
-        controlRot(0, -0.2);
+        controlRot(0, -1, 0);
         return false;
     }
     // Right.
     if (keyCode === 39) {
-        controlRot(0, 0.2);
+        controlRot(0, 1, 0);
         return false;
     }
     // Up.
     if (keyCode === 38) {
-        controlRot(0.2, 0);
+        controlRot(1, 0, 0);
         return false;
     }
     // Down.
     if (keyCode === 40) {
-        controlRot(-0.2, 0);
+        controlRot(-1, 0, 0);
         return false;
+    }
+    // Comma.
+    if (keyCode === 188) {
+        controlRot(0, 0, -1);
+    }
+    // Period.
+    if (keyCode === 190) {
+        controlRot(0, 0, 1);
     }
     // Enter.
     if (keyCode === 13) {
@@ -155,19 +197,27 @@ const keyDownEvent = (event) => {
         return false;
     }
     // Backspace.
-    if (keyCode == 8) {
+    if (keyCode === 8) {
         deletePanel();
         return false;
     }
     // Left bracket.
-    if (keyCode == 219) {
+    if (keyCode === 219) {
         selectPanelByOffset(-1);
     }
     // Right bracket.
-    if (keyCode == 221) {
+    if (keyCode === 221) {
         selectPanelByOffset(1);
     }
 }
+
+const keyUpEvent = (event) => {
+    const keyCode = event.which;
+    // Shift.
+    if (keyCode === 16) {
+        shiftKeyIsHeld = false;
+    }
+};
 
 const initializePage = async () => {
     
@@ -198,6 +248,7 @@ const initializePage = async () => {
     setControlMode(controlModes.camera);
     selectPanel(null);
     window.onkeydown = keyDownEvent;
+    window.onkeyup = keyUpEvent;
 }
 
 

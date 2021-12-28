@@ -42,6 +42,12 @@ class Vector {
         this.y -= vector.y;
         this.z -= vector.z;
     }
+    
+    scale(value) {
+        this.x *= value;
+        this.y *= value;
+        this.z *= value;
+    }
 }
 
 class Loc extends Vector {
