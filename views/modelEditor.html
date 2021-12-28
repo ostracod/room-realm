@@ -34,6 +34,14 @@
 </div>
 <br style="clear: both;" />
 <p>
+    Model data:
+    <button onclick="readModelData();">Get</button>
+    <button onclick="writeModelData();">Set</button>
+    <button onclick="clearModelData();">Clear</button>
+    <br />
+    <textarea id="modelData" style="width:300px; height: 100px;"></textarea>
+</p>
+<p>
     Controls:
 <p>
 <ul>
@@ -42,6 +50,7 @@
     <li><strong>Shift + WASDEC</strong> = Move fast</li>
     <li><strong>Arrow keys and , + .</strong> = Rotate camera or panel</li>
     <li><strong>Enter</strong> = Create new panel</li>
+    <li><strong>V</strong> = Duplicate selected panel</li>
     <li><strong>Backspace</strong> = Delete selected panel</li>
     <li><strong>[ + ]</strong> = Select panel</li>
 </ul>

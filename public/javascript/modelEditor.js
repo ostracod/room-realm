@@ -66,8 +66,12 @@ const displayPanelAttributes = () => {
 };
 
 const selectPanel = (index) => {
-    selectedPanelIndex = index;
-    const text = (index === null) ? "(None)" : selectedPanelIndex.toString();
+    if (index !== null && (index < 0 || index >= modelBody.panels.length)) {
+        selectedPanelIndex = null;
+    } else {
+        selectedPanelIndex = index;
+    }
+    const text = (selectedPanelIndex === null) ? "(None)" : selectedPanelIndex.toString();
     document.getElementById("selectedPanelIndex").innerHTML = text;
     displayPanelAttributes();
 };
@@ -78,7 +82,8 @@ const selectPanelByOffset = (offset) => {
         selectPanel(null);
         return;
     }
-    const index = Math.max(0, Math.min(selectedPanelIndex + offset, panels.length - 1))
+    let index = (selectedPanelIndex === null) ? 0 : selectedPanelIndex;
+    index = Math.max(0, Math.min(index + offset, panels.length - 1));
     selectPanel(index);
 };
 
@@ -152,14 +157,27 @@ const rotatePanel = (anglesOffset) => {
     displayPanelAttributes();
 };
 
-const createPanel = () => {
-    const dim = new Dim(16, 16);
-    const texture = new Texture(new Pos(0, 0), dim);
-    const panel = new Panel(new Loc(0, 0, 0), dim.copy(), texture, new RotAngles(0, 0, 0));
+const addPanel = (panel) => {
     const { panels } = modelBody;
     panels.push(panel);
     selectPanel(panels.length - 1);
     drawEverything();
+};
+
+const createPanel = () => {
+    const dim = new Dim(16, 16);
+    const texture = new Texture(new Pos(0, 0), dim);
+    const panel = new Panel(new Loc(0, 0, 0), dim.copy(), texture, new RotAngles(0, 0, 0));
+    addPanel(panel);
+};
+
+const duplicatePanel = () => {
+    const panel = getSelectedPanel();
+    if (panel === null) {
+        return;
+    }
+    const panelCopy = panel.copy();
+    addPanel(panelCopy);
 };
 
 const deletePanel = () => {
@@ -168,8 +186,7 @@ const deletePanel = () => {
     }
     const { panels } = modelBody;
     panels.splice(selectedPanelIndex, 1);
-    const index = (panels.length > 0) ? panels.length - 1 : null;
-    selectPanel(index);
+    selectPanel(panels.length - 1);
     drawEverything();
 };
 
@@ -178,6 +195,22 @@ const drawEverything = () => {
     scene.draw();
     drawImageData();
 }
+
+const readModelData = () => {
+    // TODO: Implement.
+    
+};
+
+const writeModelData = () => {
+    // TODO: Implement.
+    
+};
+
+const clearModelData = () => {
+    modelBody.panels = [];
+    selectPanel(0);
+    drawEverything();
+};
 
 const keyDownEvent = (event) => {
     const keyCode = event.which;
@@ -252,6 +285,10 @@ const keyDownEvent = (event) => {
     if (keyCode === 13) {
         createPanel();
         return false;
+    }
+    // V.
+    if (keyCode === 86) {
+        duplicatePanel();
     }
     // Backspace.
     if (keyCode === 8) {

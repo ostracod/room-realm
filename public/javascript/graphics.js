@@ -200,6 +200,10 @@ class Texture {
         }
     }
     
+    copy() {
+        return new Texture(this.pos.copy(), this.dim.copy(), this.noise);
+    }
+    
     getColor(pos) {
         const x = Math.floor(pos.x);
         const y = Math.floor(pos.y);
@@ -219,6 +223,22 @@ class Panel {
         if (angles !== null) {
             this.setRotAngles(angles);
         }
+    }
+    
+    copy() {
+        const output = new Panel(
+            this.loc.copy(),
+            this.dim.copy(),
+            this.texture.copy(),
+            null,
+            this.drawBothSides,
+        );
+        if (this.angles === null) {
+            output.setRot(this.rot);
+        } else {
+            output.setRotAngles(this.angles);
+        }
+        return output;
     }
     
     updateShouldDraw() {
