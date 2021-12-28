@@ -17,6 +17,14 @@ class Dim {
         this.x = x;
         this.y = y;
     }
+    
+    copy() {
+        return new Dim(this.x, this.y);
+    }
+    
+    toJson() {
+        return [this.x, this.y];
+    }
 }
 
 class Vector {
@@ -47,6 +55,10 @@ class Vector {
         this.x *= value;
         this.y *= value;
         this.z *= value;
+    }
+    
+    toJson() {
+        return [this.x, this.y, this.z];
     }
 }
 
@@ -170,18 +182,19 @@ class Rot {
 
 class Texture {
     
-    constructor(dim, cropPos, cropDim, noise = 0) {
+    constructor(pos, dim, noise = 0) {
+        this.pos = pos;
         this.dim = dim;
-        this.cropDim = cropDim;
+        this.noise = noise;
         this.colors = [];
-        for (let offsetY = 0; offsetY < cropDim.y; offsetY++) {
-            for (let offsetX = 0; offsetX < cropDim.x; offsetX++) {
-                const index = (cropPos.x + offsetX + (cropPos.y + offsetY) * textureSheetSize) * 4;
+        for (let offsetY = 0; offsetY < this.dim.y; offsetY++) {
+            for (let offsetX = 0; offsetX < this.dim.x; offsetX++) {
+                const index = (this.pos.x + offsetX + (this.pos.y + offsetY) * textureSheetSize) * 4;
                 const r = textureSheetImageDataList[index];
                 const g = textureSheetImageDataList[index + 1];
                 const b = textureSheetImageDataList[index + 2];
                 const color = new Color(r, g, b);
-                applyColorNoise(color, noise);
+                applyColorNoise(color, this.noise);
                 this.colors.push(color);
             }
         }
@@ -190,18 +203,15 @@ class Texture {
     getColor(pos) {
         const x = Math.floor(pos.x);
         const y = Math.floor(pos.y);
-        if (x >= 0 && x < this.dim.x && y >= 0 && y < this.dim.y) {
-            return this.colors[x % this.cropDim.x + (y % this.cropDim.y) * this.cropDim.x];
-        } else {
-            return null
-        }
+        return this.colors[x % this.dim.x + (y % this.dim.y) * this.dim.x];
     }
 }
 
 class Panel {
     
-    constructor(loc, texture, angles = null, drawBothSides = false) {
+    constructor(loc, dim, texture, angles = null, drawBothSides = false) {
         this.loc = loc;
+        this.dim = dim;
         this.texture = texture;
         this.drawBothSides = drawBothSides;
         this.rot = null;
@@ -211,8 +221,7 @@ class Panel {
         }
     }
     
-    setRot(rot) {
-        this.rot = rot;
+    updateShouldDraw() {
         if (this.drawBothSides) {
             this.shouldDraw = true;
         } else {
@@ -220,6 +229,11 @@ class Panel {
             const dotProduct = this.loc.dotProduct(normalOffset);
             this.shouldDraw = (dotProduct > 0);
         }
+    }
+    
+    setRot(rot) {
+        this.rot = rot;
+        this.updateShouldDraw();
         if (this.shouldDraw) {
             this.basisX = this.rot.rotateLoc(new Loc(1, 0, 0));
             this.basisY = this.rot.rotateLoc(new Loc(0, 1, 0));
@@ -234,11 +248,16 @@ class Panel {
         this.setRot(this.angles.createRot());
     }
     
+    setDrawBothSides(drawBothSides) {
+        this.drawBothSides = drawBothSides;
+        this.updateShouldDraw();
+    }
+    
     transformByOffsets(locOffset, rotOffset) {
         const loc = rotOffset.rotateLoc(this.loc);
         const rot = rotOffset.rotateRot(this.rot);
         loc.add(locOffset);
-        const output = new Panel(loc, this.texture, null, this.drawBothSides);
+        const output = new Panel(loc, this.dim, this.texture, null, this.drawBothSides);
         output.setRot(rot);
         return output;
     }
@@ -262,20 +281,19 @@ class Panel {
         }
         const panelOffset = new Pos(0, 0);
         const canvasPos = new Pos(0, 0);
-        const panelDim = this.texture.dim;
         
         // Determine the Loc of each vertex in the panel.
         const vertexLocs = [];
         let hasPositiveZ = false;
         for (
             panelOffset.y = 0;
-            panelOffset.y <= panelDim.y;
-            panelOffset.y += panelDim.y
+            panelOffset.y <= this.dim.y;
+            panelOffset.y += this.dim.y
         ) {
             for (
                 panelOffset.x = 0;
-                panelOffset.x <= panelDim.x;
-                panelOffset.x += panelDim.x
+                panelOffset.x <= this.dim.x;
+                panelOffset.x += this.dim.x
             ) {
                 const vertexLoc = this.getLoc(panelOffset);
                 vertexLocs.push(vertexLoc);
@@ -324,10 +342,11 @@ class Panel {
                 const c6 = this.basisY.y - this.basisY.z * canvasOffset.y;
                 panelOffset.y = (c5 - c1 * c2 / c4) / (c1 * c3 / c4 - c6);
                 panelOffset.x = (c2 + panelOffset.y * c3) / c4;
-                const color = this.texture.getColor(panelOffset);
-                if (color === null) {
+                if (panelOffset.x < 0 || panelOffset.x >= this.dim.x
+                        || panelOffset.y < 0 || panelOffset.y >= this.dim.y) {
                     continue;
                 }
+                const color = this.texture.getColor(panelOffset);
                 const depth = this.getLocZ(panelOffset);
                 if (depth <= 0) {
                     continue;
@@ -402,6 +421,16 @@ class Scene {
         this.cameraRot = null;
     }
 }
+
+const convertPosToJson = (pos) => [pos.x, pos.y];
+
+const convertJsonToPos = (data) => new Pos(data[0], data[1]);
+
+const convertJsonToDim = (data) => new Dim(data[0], data[1]);
+
+const convertJsonToLoc = (data) => new Loc(data[0], data[1], data[2]);
+
+const convertJsonToRotAngles = (data) => new RotAngles(data[0], data[1], data[2]);
 
 const transposeRotMatrix = (matrix) => {
     return [

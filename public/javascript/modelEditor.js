@@ -3,6 +3,41 @@ const canvasWidth = 300;
 const canvasHeight = 200;
 const canvasPixelScale = 1 / 2;
 const controlModes = { camera: 1, panel: 2 };
+const panelTagItems = [
+    {
+        id: "panelLoc",
+        get: (panel) => panel.loc.toJson(),
+        parse: convertJsonToLoc,
+    },
+    {
+        id: "panelAngles",
+        get: (panel) => panel.angles.toJson(),
+        parse: convertJsonToRotAngles,
+    },
+    {
+        id: "panelDim",
+        get: (panel) => panel.dim.toJson(),
+        parse: convertJsonToDim,
+    },
+    {
+        id: "texturePos",
+        get: (panel) => convertPosToJson(panel.texture.pos),
+        parse: convertJsonToPos,
+    },
+    {
+        id: "textureDim",
+        get: (panel) => panel.texture.dim.toJson(),
+        parse: convertJsonToDim,
+    },
+    {
+        id: "textureNoise",
+        get: (panel) => panel.texture.noise,
+    },
+    {
+        id: "drawBothSides",
+        get: (panel) => panel.drawBothSides,
+    },
+];
 let controlMode;
 let selectedPanelIndex;
 let canvas;
@@ -10,15 +45,31 @@ let context;
 let modelBody;
 let scene;
 let shiftKeyIsHeld = false;
+let canvasIsFocused = true;
 
 const getSelectedPanel = () => (
     (selectedPanelIndex === null) ? null : modelBody.panels[selectedPanelIndex]
 );
 
+const displayPanelAttributes = () => {
+    const panel = getSelectedPanel();
+    if (panel === null) {
+        panelTagItems.forEach((tagItem) => {
+            document.getElementById(tagItem.id).value = "";
+        });
+        return;
+    }
+    panelTagItems.forEach((tagItem) => {
+        const text = JSON.stringify(tagItem.get(panel));
+        document.getElementById(tagItem.id).value = text;
+    });
+};
+
 const selectPanel = (index) => {
     selectedPanelIndex = index;
     const text = (index === null) ? "(None)" : selectedPanelIndex.toString();
     document.getElementById("selectedPanelIndex").innerHTML = text;
+    displayPanelAttributes();
 };
 
 const selectPanelByOffset = (offset) => {
@@ -78,6 +129,7 @@ const movePanel = (locOffset) => {
     }
     panel.loc.add(locOffset);
     drawEverything();
+    displayPanelAttributes();
 };
 
 const rotateCamera = (anglesOffset) => {
@@ -97,14 +149,16 @@ const rotatePanel = (anglesOffset) => {
     angles.add(anglesOffset);
     panel.setRotAngles(angles);
     drawEverything();
+    displayPanelAttributes();
 };
 
 const createPanel = () => {
-    const texture = new Texture(new Dim(16, 16), new Pos(0, 0), new Dim(16, 16));
-    const panel = new Panel(new Loc(0, 0, 0), texture, new RotAngles(0, 0, 0));
+    const dim = new Dim(16, 16);
+    const texture = new Texture(new Pos(0, 0), dim);
+    const panel = new Panel(new Loc(0, 0, 0), dim.copy(), texture, new RotAngles(0, 0, 0));
     const { panels } = modelBody;
-    selectPanel(panels.length);
     panels.push(panel);
+    selectPanel(panels.length - 1);
     drawEverything();
 };
 
@@ -130,6 +184,9 @@ const keyDownEvent = (event) => {
     // Shift.
     if (keyCode === 16) {
         shiftKeyIsHeld = true;
+    }
+    if (!canvasIsFocused) {
+        return true;
     }
     // 1.
     if (keyCode === 49) {
@@ -219,6 +276,40 @@ const keyUpEvent = (event) => {
     }
 };
 
+const panelInputChangeEvent = () => {
+    const panel = getSelectedPanel();
+    if (panel === null) {
+        return;
+    }
+    const valueMap = {};
+    for (const tagItem of panelTagItems) {
+        const { id, parse } = tagItem;
+        const tag = document.getElementById(id);
+        let data;
+        if (tag.type === "checkbox") {
+            data = tag.checked;
+        } else {
+            try {
+                data = JSON.parse(tag.value);
+            } catch(error) {
+                alert(`Invalid JSON for ${id}!`);
+                return;
+            }
+        }
+        valueMap[id] = (typeof parse === "undefined") ? data : parse(data);
+    }
+    panel.loc = valueMap.panelLoc;
+    panel.setRotAngles(valueMap.panelAngles);
+    panel.dim = valueMap.panelDim;
+    panel.setDrawBothSides(valueMap.drawBothSides);
+    panel.texture = new Texture(
+        valueMap.texturePos,
+        valueMap.textureDim,
+        valueMap.textureNoise,
+    );
+    drawEverything();
+};
+
 const initializePage = async () => {
     
     canvas = document.getElementById("canvas");
@@ -226,25 +317,40 @@ const initializePage = async () => {
     canvas.height = canvasHeight;
     canvas.style.width = Math.round(canvasWidth / canvasPixelScale);
     canvas.style.height = Math.round(canvasHeight / canvasPixelScale);
+    canvas.onclick = () => {
+        canvasIsFocused = true;
+    }
     context = canvas.getContext("2d");
     
     await initializeGraphics();
     
     const zeroRot = createRotByAngles(0, 0, 0);
-    const originTexture = new Texture(new Dim(2, 2), new Pos(0, 0), new Dim(2, 2));
-    const originBody = new Body(new Loc(0, 0, 0), zeroRot, [
-        new Panel(new Loc(-1, -1, -1), originTexture, new RotAngles(0, 0, 0)),
-        new Panel(new Loc(-1, 1, 1), originTexture, new RotAngles(Math.PI, 0, 0)),
-        new Panel(new Loc(-1, -1, 1), originTexture, new RotAngles(-Math.PI / 2, 0, 0)),
-        new Panel(new Loc(-1, 1, -1), originTexture, new RotAngles(Math.PI / 2, 0, 0)),
-        new Panel(new Loc(-1, -1, 1), originTexture, new RotAngles(0, Math.PI / 2, 0)),
-        new Panel(new Loc(1, -1, -1), originTexture, new RotAngles(0, -Math.PI / 2, 0)),
-    ]);
+    const originDim = new Dim(2, 2);
+    const originTexture = new Texture(new Pos(0, 0), new Dim(2, 2));
+    const originPanels = [
+        [new Loc(-1, -1, -1), new RotAngles(0, 0, 0)],
+        [new Loc(-1, 1, 1), new RotAngles(Math.PI, 0, 0)],
+        [new Loc(-1, -1, 1), new RotAngles(-Math.PI / 2, 0, 0)],
+        [new Loc(-1, 1, -1), new RotAngles(Math.PI / 2, 0, 0)],
+        [new Loc(-1, -1, 1), new RotAngles(0, Math.PI / 2, 0)],
+        [new Loc(1, -1, -1), new RotAngles(0, -Math.PI / 2, 0)],
+    
+    ].map((locAndAngles) => (
+        new Panel(locAndAngles[0], originDim, originTexture, locAndAngles[1])
+    ));
+    const originBody = new Body(new Loc(0, 0, 0), zeroRot, originPanels);
     modelBody = new Body(new Loc(0, 0, 0), zeroRot, []);
     scene = new Scene([originBody, modelBody]);
     scene.cameraLoc.z = -50;
     drawEverything();
     
+    panelTagItems.forEach((tagItem) => {
+        const tag = document.getElementById(tagItem.id);
+        tag.onfocus = () => {
+            canvasIsFocused = false;
+        }
+        tag.onchange = panelInputChangeEvent;
+    });
     setControlMode(controlModes.camera);
     selectPanel(null);
     window.onkeydown = keyDownEvent;
