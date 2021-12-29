@@ -178,6 +178,10 @@ class Rot {
         }
         return new Rot(matrix);
     }
+    
+    toJson() {
+        return this.matrix;
+    }
 }
 
 class Texture {
@@ -208,6 +212,14 @@ class Texture {
         const x = Math.floor(pos.x);
         const y = Math.floor(pos.y);
         return this.colors[x % this.dim.x + (y % this.dim.y) * this.dim.x];
+    }
+    
+    toJson() {
+        return {
+            pos: convertPosToJson(this.pos),
+            dim: this.dim.toJson(),
+            noise: this.noise,
+        };
     }
 }
 
@@ -383,6 +395,21 @@ class Panel {
             }
         }
     }
+    
+    toJson() {
+        const output = {
+            loc: this.loc.toJson(),
+            dim: this.dim.toJson(),
+            texture: this.texture.toJson(),
+            drawBothSides: this.drawBothSides,
+        };
+        if (this.angles !== null) {
+            output.angles = this.angles.toJson();
+        } else {
+            output.rot = this.rot.toJson();
+        }
+        return output;
+    }
 }
 
 class Body {
@@ -450,7 +477,31 @@ const convertJsonToDim = (data) => new Dim(data[0], data[1]);
 
 const convertJsonToLoc = (data) => new Loc(data[0], data[1], data[2]);
 
+const convertJsonToRot = (data) => new Rot(data);
+
 const convertJsonToRotAngles = (data) => new RotAngles(data[0], data[1], data[2]);
+
+const convertJsonToTexture = (data) => new Texture(
+    convertJsonToPos(data.pos),
+    convertJsonToDim(data.dim),
+    data.noise,
+);
+
+const convertJsonToPanel = (data) => {
+    const output = new Panel(
+        convertJsonToLoc(data.loc),
+        convertJsonToDim(data.dim),
+        convertJsonToTexture(data.texture),
+        null,
+        data.drawBothSides,
+    );
+    if ("angles" in data) {
+        output.setRotAngles(convertJsonToRotAngles(data.angles));
+    } else {
+        output.setRot(convertJsonToRot(data.rot));
+    }
+    return output;
+}
 
 const transposeRotMatrix = (matrix) => {
     return [

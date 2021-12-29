@@ -197,13 +197,15 @@ const drawEverything = () => {
 }
 
 const readModelData = () => {
-    // TODO: Implement.
-    
+    const data = modelBody.panels.map((panel) => panel.toJson());
+    document.getElementById("modelData").value = JSON.stringify(data);
 };
 
 const writeModelData = () => {
-    // TODO: Implement.
-    
+    const data = JSON.parse(document.getElementById("modelData").value);
+    modelBody.panels = data.map((panelData) => convertJsonToPanel(panelData));
+    selectPanel(0);
+    drawEverything();
 };
 
 const clearModelData = () => {
@@ -388,6 +390,9 @@ const initializePage = async () => {
         }
         tag.onchange = panelInputChangeEvent;
     });
+    document.getElementById("modelData").onfocus = () => {
+        canvasIsFocused = false;
+    };
     setControlMode(controlModes.camera);
     selectPanel(null);
     window.onkeydown = keyDownEvent;
