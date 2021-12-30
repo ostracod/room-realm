@@ -166,7 +166,7 @@ const addPanel = (panel) => {
 
 const createPanel = () => {
     const dim = new Dim(16, 16);
-    const texture = new Texture(new Pos(0, 0), dim);
+    const texture = new Texture(new Pos(0, 16), dim);
     const panel = new Panel(new Loc(0, 0, 0), dim.copy(), texture, new RotAngles(0, 0, 0));
     addPanel(panel);
 };

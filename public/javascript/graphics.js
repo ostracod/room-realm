@@ -1,6 +1,7 @@
 
 const canvasOffsetScale = 100;
-const textureSheetSize = 100;
+const textureSheetWidth = 128;
+const textureSheetHeight = 176;
 let canvasCenter;
 let imageData;
 let imageDataList;
@@ -10,6 +11,7 @@ let textureSheetCanvas;
 let textureSheetContext;
 let textureSheetImageData;
 let textureSheetImageDataList;
+let transparentTextureColor;
 
 class Dim {
     
@@ -193,12 +195,18 @@ class Texture {
         this.colors = [];
         for (let offsetY = 0; offsetY < this.dim.y; offsetY++) {
             for (let offsetX = 0; offsetX < this.dim.x; offsetX++) {
-                const index = (this.pos.x + offsetX + (this.pos.y + offsetY) * textureSheetSize) * 4;
+                const index = (this.pos.x + offsetX + (this.pos.y + offsetY) * textureSheetWidth) * 4;
                 const r = textureSheetImageDataList[index];
                 const g = textureSheetImageDataList[index + 1];
                 const b = textureSheetImageDataList[index + 2];
-                const color = new Color(r, g, b);
-                applyColorNoise(color, this.noise);
+                let color;
+                if (r === transparentTextureColor.r && g === transparentTextureColor.g
+                        && b === transparentTextureColor.b) {
+                    color = null;
+                } else {
+                    color = new Color(r, g, b);
+                    applyColorNoise(color, this.noise);
+                }
                 this.colors.push(color);
             }
         }
@@ -379,6 +387,9 @@ class Panel {
                     continue;
                 }
                 const color = this.texture.getColor(panelOffset);
+                if (color === null) {
+                    continue;
+                }
                 const depth = this.getLocZ(panelOffset);
                 if (depth <= 0) {
                     continue;
@@ -566,8 +577,8 @@ const initializeGraphics = async () => {
     depthArray = Array(canvasWidth * canvasHeight);
     
     textureSheetCanvas = document.createElement("canvas");
-    textureSheetCanvas.width = textureSheetSize;
-    textureSheetCanvas.height = textureSheetSize;
+    textureSheetCanvas.width = textureSheetWidth;
+    textureSheetCanvas.height = textureSheetHeight;
     textureSheetContext = textureSheetCanvas.getContext("2d");
     await new Promise((resolve) => {
         textureSheetImage = new Image();
@@ -578,10 +589,16 @@ const initializeGraphics = async () => {
     textureSheetImageData = textureSheetContext.getImageData(
         0,
         0,
-        textureSheetSize,
-        textureSheetSize
+        textureSheetWidth,
+        textureSheetHeight
     );
     textureSheetImageDataList = textureSheetImageData.data;
+    transparentIndex = textureSheetImageDataList.length - 4;
+    transparentTextureColor = new Color(
+        textureSheetImageDataList[transparentIndex],
+        textureSheetImageDataList[transparentIndex + 1],
+        textureSheetImageDataList[transparentIndex + 2],
+    );
 };
 
 
