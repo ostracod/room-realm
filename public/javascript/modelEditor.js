@@ -20,6 +20,10 @@ const panelTagItems = [
         parse: convertJsonToDim,
     },
     {
+        id: "drawBothSides",
+        get: (panel) => panel.drawBothSides,
+    },
+    {
         id: "texturePos",
         get: (panel) => convertPosToJson(panel.texture.pos),
         parse: convertJsonToPos,
@@ -34,8 +38,14 @@ const panelTagItems = [
         get: (panel) => panel.texture.noise,
     },
     {
-        id: "drawBothSides",
-        get: (panel) => panel.drawBothSides,
+        id: "textureIsFlipped",
+        get: (panel) => (
+            (panel.texture instanceof ImageTexture) ? panel.texture.isFlipped : false
+        ),
+    },
+    {
+        id: "textureIsSwatch",
+        get: (panel) => panel.texture instanceof SwatchTexture,
     },
 ];
 let controlMode;
@@ -60,8 +70,13 @@ const displayPanelAttributes = () => {
         return;
     }
     panelTagItems.forEach((tagItem) => {
-        const text = JSON.stringify(tagItem.get(panel));
-        document.getElementById(tagItem.id).value = text;
+        const value = tagItem.get(panel);
+        const tag = document.getElementById(tagItem.id);
+        if (tag.type === "checkbox") {
+            tag.checked = value;
+        } else {
+            tag.value = JSON.stringify(value);
+        }
     });
 };
 
@@ -166,7 +181,7 @@ const addPanel = (panel) => {
 
 const createPanel = () => {
     const dim = new Dim(16, 16);
-    const texture = new Texture(new Pos(0, 16), dim);
+    const texture = new ImageTexture(new Pos(0, 16), dim);
     const panel = new Panel(new Loc(0, 0, 0), dim.copy(), texture, new RotAngles(0, 0, 0));
     addPanel(panel);
 };
@@ -341,11 +356,19 @@ const panelInputChangeEvent = () => {
     panel.setRotAngles(valueMap.panelAngles);
     panel.dim = valueMap.panelDim;
     panel.setDrawBothSides(valueMap.drawBothSides);
-    panel.texture = new Texture(
-        valueMap.texturePos,
-        valueMap.textureDim,
-        valueMap.textureNoise,
-    );
+    const { texturePos, textureDim, textureNoise } = valueMap;
+    let texture;
+    if (valueMap.textureIsSwatch) {
+        texture = new SwatchTexture(texturePos, textureDim, textureNoise);
+    } else {
+        texture = new ImageTexture(
+            texturePos,
+            textureDim,
+            textureNoise,
+            valueMap.textureIsFlipped,
+        );
+    }
+    panel.texture = texture;
     drawEverything();
 };
 
@@ -365,7 +388,7 @@ const initializePage = async () => {
     
     const zeroRot = createRotByAngles(0, 0, 0);
     const originDim = new Dim(2, 2);
-    const originTexture = new Texture(new Pos(0, 0), new Dim(2, 2));
+    const originTexture = new SwatchTexture(new Pos(0, 0), new Dim(2, 2));
     const originPanels = [
         [new Loc(-1, -1, -1), new RotAngles(0, 0, 0)],
         [new Loc(-1, 1, 1), new RotAngles(Math.PI, 0, 0)],

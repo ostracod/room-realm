@@ -1,7 +1,7 @@
 
 const canvasOffsetScale = 100;
 const textureSheetWidth = 128;
-const textureSheetHeight = 176;
+const textureSheetHeight = 128;
 let canvasCenter;
 let imageData;
 let imageDataList;
@@ -187,33 +187,29 @@ class Rot {
 }
 
 class Texture {
+    // Concrete subclasses of Texture must implement these methods:
+    // createColor, copy, getTypeText
     
+    // Concrete subclasses must call initializeColors in their constructors.
     constructor(pos, dim, noise = 0) {
         this.pos = pos;
         this.dim = dim;
         this.noise = noise;
+        this.colors = null;
+    }
+    
+    initializeColors() {
         this.colors = [];
-        for (let offsetY = 0; offsetY < this.dim.y; offsetY++) {
-            for (let offsetX = 0; offsetX < this.dim.x; offsetX++) {
-                const index = (this.pos.x + offsetX + (this.pos.y + offsetY) * textureSheetWidth) * 4;
-                const r = textureSheetImageDataList[index];
-                const g = textureSheetImageDataList[index + 1];
-                const b = textureSheetImageDataList[index + 2];
-                let color;
-                if (r === transparentTextureColor.r && g === transparentTextureColor.g
-                        && b === transparentTextureColor.b) {
-                    color = null;
-                } else {
-                    color = new Color(r, g, b);
+        const offset = new Pos(0, 0);
+        for (offset.y = 0; offset.y < this.dim.y; offset.y++) {
+            for (offset.x = 0; offset.x < this.dim.x; offset.x++) {
+                const color = this.createColor(offset);
+                if (color !== null) {
                     applyColorNoise(color, this.noise);
                 }
                 this.colors.push(color);
             }
         }
-    }
-    
-    copy() {
-        return new Texture(this.pos.copy(), this.dim.copy(), this.noise);
     }
     
     getColor(pos) {
@@ -224,10 +220,60 @@ class Texture {
     
     toJson() {
         return {
+            type: this.getTypeText(),
             pos: convertPosToJson(this.pos),
             dim: this.dim.toJson(),
             noise: this.noise,
         };
+    }
+}
+
+class ImageTexture extends Texture {
+    
+    constructor(pos, dim, noise = 0, isFlipped = false) {
+        super(pos, dim, noise);
+        this.isFlipped = isFlipped;
+        this.initializeColors();
+    }
+    
+    createColor(offset) {
+        const offsetX = (this.isFlipped) ? this.dim.x - offset.x - 1 : offset.x;
+        return getTextureSheetColor(this.pos.x + offsetX, this.pos.y + offset.y);
+    }
+    
+    copy() {
+        return new ImageTexture(this.pos.copy(), this.dim.copy(), this.noise, this.isFlipped);
+    }
+    
+    getTypeText() {
+        return "image";
+    }
+    
+    toJson() {
+        const output = super.toJson();
+        output.isFlipped = this.isFlipped;
+        return output;
+    }
+}
+
+class SwatchTexture extends Texture {
+    
+    constructor(pos, dim, noise = 0) {
+        super(pos, dim, noise);
+        this.color = getTextureSheetColor(this.pos.x, this.pos.y);
+        this.initializeColors();
+    }
+    
+    createColor(offset) {
+        return (this.color === null) ? null : this.color.copy();
+    }
+    
+    copy() {
+        return new SwatchTexture(this.pos.copy(), this.dim.copy(), this.noise);
+    }
+    
+    getTypeText() {
+        return "swatch";
     }
 }
 
@@ -492,11 +538,18 @@ const convertJsonToRot = (data) => new Rot(data);
 
 const convertJsonToRotAngles = (data) => new RotAngles(data[0], data[1], data[2]);
 
-const convertJsonToTexture = (data) => new Texture(
-    convertJsonToPos(data.pos),
-    convertJsonToDim(data.dim),
-    data.noise,
-);
+const convertJsonToTexture = (data) => {
+    const { type, noise } = data;
+    const pos = convertJsonToPos(data.pos);
+    const dim = convertJsonToDim(data.dim);
+    if (type === "image") {
+        return new ImageTexture(pos, dim, noise, data.isFlipped);
+    } else if (type === "swatch") {
+        return new SwatchTexture(pos, dim, noise);
+    } else {
+        throw new Error(`Unknown texture type "${type}".`);
+    }
+}
 
 const convertJsonToPanel = (data) => {
     const output = new Panel(
@@ -545,6 +598,19 @@ const clearImageData = () => {
 
 const drawImageData = () => {
     context.putImageData(imageData, 0, 0);
+};
+
+const getTextureSheetColor = (x, y) => {
+    const index = (x + y * textureSheetWidth) * 4;
+    const r = textureSheetImageDataList[index];
+    const g = textureSheetImageDataList[index + 1];
+    const b = textureSheetImageDataList[index + 2];
+    if (r === transparentTextureColor.r && g === transparentTextureColor.g
+            && b === transparentTextureColor.b) {
+        return null;
+    } else {
+        return new Color(r, g, b);
+    }
 };
 
 const applyColorNoise = (color, noise) => {
