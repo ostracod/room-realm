@@ -190,22 +190,33 @@ class Texture {
     // Concrete subclasses of Texture must implement these methods:
     // createColor, copy, getTypeText
     
-    // Concrete subclasses must call initializeColors in their constructors.
     constructor(pos, dim, noise = 0) {
         this.pos = pos;
         this.dim = dim;
         this.noise = noise;
+        this.shade = null;
         this.colors = null;
     }
     
-    initializeColors() {
+    initializeColors(normalOffset) {
+        const normalX = Math.abs(normalOffset.x);
+        const normalY = Math.abs(normalOffset.y);
+        const normalZ = Math.abs(normalOffset.z);
+        if (normalY > normalX && normalY > normalZ) {
+            this.shade = 1;
+        } else if (normalZ > normalX) {
+            this.shade = 0.9;
+        } else {
+            this.shade = 0.84;
+        }
         this.colors = [];
         const offset = new Pos(0, 0);
         for (offset.y = 0; offset.y < this.dim.y; offset.y++) {
             for (offset.x = 0; offset.x < this.dim.x; offset.x++) {
                 const color = this.createColor(offset);
                 if (color !== null) {
-                    applyColorNoise(color, this.noise);
+                    const scaleValue = this.shade * (1 - 2 * this.noise * Math.random());
+                    color.scale(scaleValue);
                 }
                 this.colors.push(color);
             }
@@ -233,7 +244,6 @@ class ImageTexture extends Texture {
     constructor(pos, dim, noise = 0, isFlipped = false) {
         super(pos, dim, noise);
         this.isFlipped = isFlipped;
-        this.initializeColors();
     }
     
     createColor(offset) {
@@ -261,7 +271,6 @@ class SwatchTexture extends Texture {
     constructor(pos, dim, noise = 0) {
         super(pos, dim, noise);
         this.color = getTextureSheetColor(this.pos.x, this.pos.y);
-        this.initializeColors();
     }
     
     createColor(offset) {
@@ -307,25 +316,35 @@ class Panel {
         return output;
     }
     
+    initializeTexture(rotOffset = null) {
+        let normalOffset = this.normalOffset;
+        if (rotOffset !== null) {
+            normalOffset = rotOffset.rotateLoc(normalOffset);
+        }
+        this.texture.initializeColors(normalOffset);
+    }
+    
     updateShouldDraw() {
         if (this.drawBothSides) {
             this.shouldDraw = true;
         } else {
-            const normalOffset = this.rot.rotateLoc(new Loc(0, 0, 1));
-            const dotProduct = this.loc.dotProduct(normalOffset);
+            const dotProduct = this.loc.dotProduct(this.normalOffset);
             this.shouldDraw = (dotProduct > 0);
         }
     }
     
     setRot(rot) {
         this.rot = rot;
+        this.normalOffset = this.rot.rotateLoc(new Loc(0, 0, 1));
         this.updateShouldDraw();
         if (this.shouldDraw) {
             this.basisX = this.rot.rotateLoc(new Loc(1, 0, 0));
             this.basisY = this.rot.rotateLoc(new Loc(0, 1, 0));
+            this.useSolution1 = (Math.abs(this.basisY.y) > Math.abs(this.basisY.x));
         } else {
             this.basisX = null;
             this.basisY = null;
+            this.useSolution1 = null;
         }
     }
     
@@ -420,14 +439,33 @@ class Panel {
             for (canvasPos.x = minBound.x; canvasPos.x < maxBound.x; canvasPos.x++) {
                 canvasOffset.x = (canvasPos.x - canvasCenter.x) / canvasOffsetScale;
                 canvasOffset.y = (canvasPos.y - canvasCenter.y) / canvasOffsetScale;
-                const c1 = this.basisX.z * canvasOffset.y - this.basisX.y;
+                // This is based on solving a lot of equations...
                 const c2 = this.loc.x - this.loc.z * canvasOffset.x;
-                const c3 = this.basisY.x - this.basisY.z * canvasOffset.x;
-                const c4 = this.basisX.z * canvasOffset.x - this.basisX.x;
                 const c5 = this.loc.y - this.loc.z * canvasOffset.y;
-                const c6 = this.basisY.y - this.basisY.z * canvasOffset.y;
-                panelOffset.y = (c5 - c1 * c2 / c4) / (c1 * c3 / c4 - c6);
-                panelOffset.x = (c2 + panelOffset.y * c3) / c4;
+                let c1;
+                let c3;
+                let c4;
+                let c6;
+                if (this.useSolution1) {
+                    c1 = this.basisX.z * canvasOffset.y - this.basisX.y;
+                    c3 = this.basisY.x - this.basisY.z * canvasOffset.x;
+                    c4 = this.basisX.z * canvasOffset.x - this.basisX.x;
+                    c6 = this.basisY.y - this.basisY.z * canvasOffset.y;
+                } else {
+                    c1 = this.basisY.z * canvasOffset.y - this.basisY.y;
+                    c3 = this.basisX.x - this.basisX.z * canvasOffset.x;
+                    c4 = this.basisY.z * canvasOffset.x - this.basisY.x;
+                    c6 = this.basisX.y - this.basisX.z * canvasOffset.y;
+                }
+                const coordinate1 = (c5 - c1 * c2 / c4) / (c1 * c3 / c4 - c6);
+                const coordinate2 = (c2 + coordinate1 * c3) / c4;
+                if (this.useSolution1) {
+                    panelOffset.x = coordinate2;
+                    panelOffset.y = coordinate1;
+                } else {
+                    panelOffset.x = coordinate1;
+                    panelOffset.y = coordinate2;
+                }
                 if (panelOffset.x < 0 || panelOffset.x >= this.dim.x
                         || panelOffset.y < 0 || panelOffset.y >= this.dim.y) {
                     continue;
@@ -475,6 +513,21 @@ class Body {
         this.loc = loc;
         this.rot = rot;
         this.panels = panels;
+    }
+    
+    initializePanelTexture(panel) {
+        panel.initializeTexture(this.rot);
+    }
+    
+    initializeTextures() {
+        this.panels.forEach((panel) => {
+            this.initializePanelTexture(panel);
+        });
+    }
+    
+    addPanel(panel) {
+        this.panels.push(panel);
+        this.initializePanelTexture(panel);
     }
     
     transformByCamera(cameraLoc, cameraRot) {
@@ -611,17 +664,6 @@ const getTextureSheetColor = (x, y) => {
     } else {
         return new Color(r, g, b);
     }
-};
-
-const applyColorNoise = (color, noise) => {
-    if (noise <= 0) {
-        return;
-    }
-    const scale = 1 - 2 * noise * Math.random();
-    ["r", "g", "b"].forEach((name) => {
-        const value = Math.round(color[name] * scale);
-        color[name] = Math.max(0, Math.min(value, 255));
-    });
 };
 
 const initializeGraphics = async () => {

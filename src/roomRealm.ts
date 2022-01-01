@@ -11,7 +11,7 @@ const ostracodMultiplayerInstance = ostracodMultiplayer.ostracodMultiplayer;
 
 const router = express.Router();
 
-router.get("/test", (req, res, next) => {
+router.get("/modelEditor", (req, res, next) => {
     pageUtils.renderPage(
         res,
         pathUtils.join(projectPath, "views", "modelEditor.html"),

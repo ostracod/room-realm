@@ -168,14 +168,15 @@ const rotatePanel = (anglesOffset) => {
     const angles = panel.angles.copy();
     angles.add(anglesOffset);
     panel.setRotAngles(angles);
+    modelBody.initializePanelTexture(panel);
     drawEverything();
     displayPanelAttributes();
 };
 
 const addPanel = (panel) => {
     const { panels } = modelBody;
-    panels.push(panel);
-    selectPanel(panels.length - 1);
+    modelBody.addPanel(panel);
+    selectPanel(modelBody.panels.length - 1);
     drawEverything();
 };
 
@@ -218,7 +219,11 @@ const readModelData = () => {
 
 const writeModelData = () => {
     const data = JSON.parse(document.getElementById("modelData").value);
-    modelBody.panels = data.map((panelData) => convertJsonToPanel(panelData));
+    modelBody.panels = [];
+    data.forEach((panelData) => {
+        const panel = convertJsonToPanel(panelData);
+        modelBody.addPanel(panel);
+    });
     selectPanel(0);
     drawEverything();
 };
@@ -369,6 +374,7 @@ const panelInputChangeEvent = () => {
         );
     }
     panel.texture = texture;
+    modelBody.initializePanelTexture(panel);
     drawEverything();
 };
 
@@ -398,9 +404,10 @@ const initializePage = async () => {
         [new Loc(1, -1, -1), new RotAngles(0, -Math.PI / 2, 0)],
     
     ].map((locAndAngles) => (
-        new Panel(locAndAngles[0], originDim, originTexture, locAndAngles[1])
+        new Panel(locAndAngles[0], originDim, originTexture.copy(), locAndAngles[1])
     ));
     const originBody = new Body(new Loc(0, 0, 0), zeroRot, originPanels);
+    originBody.initializeTextures();
     modelBody = new Body(new Loc(0, 0, 0), zeroRot, []);
     scene = new Scene([originBody, modelBody]);
     scene.cameraLoc.z = -50;
