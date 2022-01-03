@@ -190,33 +190,25 @@ class Texture {
     // Concrete subclasses of Texture must implement these methods:
     // createColor, copy, getTypeText
     
+    // Subclass constructors must invoke initializeColors.
     constructor(pos, dim, noise = 0) {
         this.pos = pos;
         this.dim = dim;
         this.noise = noise;
-        this.shade = null;
         this.colors = null;
     }
     
-    initializeColors(normalOffset) {
-        const normalX = Math.abs(normalOffset.x);
-        const normalY = Math.abs(normalOffset.y);
-        const normalZ = Math.abs(normalOffset.z);
-        if (normalY > normalX && normalY > normalZ) {
-            this.shade = 1;
-        } else if (normalZ > normalX) {
-            this.shade = 0.9;
-        } else {
-            this.shade = 0.84;
-        }
+    initializeColors() {
         this.colors = [];
         const offset = new Pos(0, 0);
         for (offset.y = 0; offset.y < this.dim.y; offset.y++) {
             for (offset.x = 0; offset.x < this.dim.x; offset.x++) {
                 const color = this.createColor(offset);
                 if (color !== null) {
-                    const scaleValue = this.shade * (1 - 2 * this.noise * Math.random());
-                    color.scale(scaleValue);
+                    const scaleValue = 1 - 2 * this.noise * Math.random();
+                    color.r *= scaleValue;
+                    color.g *= scaleValue;
+                    color.b *= scaleValue;
                 }
                 this.colors.push(color);
             }
@@ -244,6 +236,7 @@ class ImageTexture extends Texture {
     constructor(pos, dim, noise = 0, isFlipped = false) {
         super(pos, dim, noise);
         this.isFlipped = isFlipped;
+        this.initializeColors();
     }
     
     createColor(offset) {
@@ -271,6 +264,7 @@ class SwatchTexture extends Texture {
     constructor(pos, dim, noise = 0) {
         super(pos, dim, noise);
         this.color = getTextureSheetColor(this.pos.x, this.pos.y);
+        this.initializeColors();
     }
     
     createColor(offset) {
@@ -298,6 +292,7 @@ class Panel {
         if (angles !== null) {
             this.setRotAngles(angles);
         }
+        this.shade = null;
     }
     
     copy() {
@@ -314,14 +309,6 @@ class Panel {
             output.setRotAngles(this.angles);
         }
         return output;
-    }
-    
-    initializeTexture(rotOffset = null) {
-        let normalOffset = this.normalOffset;
-        if (rotOffset !== null) {
-            normalOffset = rotOffset.rotateLoc(normalOffset);
-        }
-        this.texture.initializeColors(normalOffset);
     }
     
     updateShouldDraw() {
@@ -358,12 +345,34 @@ class Panel {
         this.updateShouldDraw();
     }
     
+    initializeShade(rotOffset = null) {
+        let normalOffset = this.normalOffset;
+        if (rotOffset !== null) {
+            normalOffset = rotOffset.rotateLoc(normalOffset);
+        }
+        const normalX = Math.abs(normalOffset.x);
+        const normalY = Math.abs(normalOffset.y);
+        const normalZ = Math.abs(normalOffset.z);
+        if (normalY > normalX && normalY > normalZ) {
+            this.shade = 1;
+        } else if (normalZ > normalX) {
+            this.shade = 0.9;
+        } else {
+            this.shade = 0.84;
+        }
+    }
+    
+    applyShade(colorValue) {
+        return Math.min(Math.round(colorValue * this.shade), 255);
+    }
+    
     transformByOffsets(locOffset, rotOffset) {
         const loc = rotOffset.rotateLoc(this.loc);
         const rot = rotOffset.rotateRot(this.rot);
         loc.add(locOffset);
         const output = new Panel(loc, this.dim, this.texture, null, this.drawBothSides);
         output.setRot(rot);
+        output.shade = this.shade;
         return output;
     }
     
@@ -483,9 +492,9 @@ class Panel {
                     continue;
                 }
                 const imageIndex = pixelIndex * 4;
-                imageDataList[imageIndex] = color.r;
-                imageDataList[imageIndex + 1] = color.g;
-                imageDataList[imageIndex + 2] = color.b;
+                imageDataList[imageIndex] = this.applyShade(color.r);
+                imageDataList[imageIndex + 1] = this.applyShade(color.g);
+                imageDataList[imageIndex + 2] = this.applyShade(color.b);
                 depthArray[pixelIndex] = depth;
             }
         }
@@ -515,27 +524,26 @@ class Body {
         this.panels = panels;
     }
     
-    initializePanelTexture(panel) {
-        panel.initializeTexture(this.rot);
+    initializeShade(panel) {
+        panel.initializeShade(this.rot);
     }
     
-    initializeTextures() {
+    initializeShades() {
         this.panels.forEach((panel) => {
-            this.initializePanelTexture(panel);
+            this.initializeShade(panel);
         });
     }
     
     addPanel(panel) {
         this.panels.push(panel);
-        this.initializePanelTexture(panel);
+        this.initializeShade(panel);
     }
     
-    transformByCamera(cameraLoc, cameraRot) {
+    transformByCamera(cameraLoc, invertedCameraRot) {
         let loc = this.loc.copy();
         loc.subtract(cameraLoc);
-        const invertedRot = cameraRot.invert();
-        loc = invertedRot.rotateLoc(loc);
-        const rot = invertedRot.rotateRot(this.rot);
+        loc = invertedCameraRot.rotateLoc(loc);
+        const rot = invertedCameraRot.rotateRot(this.rot);
         return new Body(loc, rot, this.panels);
     }
     
@@ -564,10 +572,11 @@ class Scene {
     }
     
     draw() {
+        const invertedCameraRot = this.getCameraRot().invert();
         this.bodies.forEach((body) => {
             const transformedBody = body.transformByCamera(
                 this.cameraLoc,
-                this.getCameraRot(),
+                invertedCameraRot,
             );
             transformedBody.draw();
         });

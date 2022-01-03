@@ -168,7 +168,7 @@ const rotatePanel = (anglesOffset) => {
     const angles = panel.angles.copy();
     angles.add(anglesOffset);
     panel.setRotAngles(angles);
-    modelBody.initializePanelTexture(panel);
+    modelBody.initializeShade(panel);
     drawEverything();
     displayPanelAttributes();
 };
@@ -374,7 +374,7 @@ const panelInputChangeEvent = () => {
         );
     }
     panel.texture = texture;
-    modelBody.initializePanelTexture(panel);
+    modelBody.initializeShade(panel);
     drawEverything();
 };
 
@@ -407,7 +407,7 @@ const initializePage = async () => {
         new Panel(locAndAngles[0], originDim, originTexture.copy(), locAndAngles[1])
     ));
     const originBody = new Body(new Loc(0, 0, 0), zeroRot, originPanels);
-    originBody.initializeTextures();
+    originBody.initializeShades();
     modelBody = new Body(new Loc(0, 0, 0), zeroRot, []);
     scene = new Scene([originBody, modelBody]);
     scene.cameraLoc.z = -50;
