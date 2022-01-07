@@ -404,7 +404,7 @@ const initializePage = async () => {
         [new Loc(1, -1, -1), new RotAngles(0, -Math.PI / 2, 0)],
     
     ].map((locAndAngles) => (
-        new Panel(locAndAngles[0], originDim, originTexture.copy(), locAndAngles[1])
+        new Panel(locAndAngles[0], originDim, originTexture, locAndAngles[1])
     ));
     const originBody = new Body(new Loc(0, 0, 0), zeroRot, originPanels);
     originBody.initializeShades();

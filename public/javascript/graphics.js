@@ -215,10 +215,50 @@ class Texture {
         }
     }
     
-    getColor(pos) {
+    getPosIndex(pos) {
         const x = Math.floor(pos.x);
         const y = Math.floor(pos.y);
-        return this.colors[x % this.dim.x + (y % this.dim.y) * this.dim.x];
+        return x % this.dim.x + (y % this.dim.y) * this.dim.x;
+    }
+    
+    getColor(pos) {
+        const index = this.getPosIndex(pos);
+        return this.colors[index];
+    }
+    
+    setColor(pos, color) {
+        const index = this.getPosIndex(pos);
+        this.colors[index] = color;
+    }
+    
+    drawCharacter(pos, color, charCode) {
+        if (charCode < 32 || charCode > 126) {
+            return;
+        }
+        const tempPos = new Pos(0, 0);
+        const offset = new Pos(0, 0);
+        for (offset.y = 0; offset.y < 7; offset.y++) {
+            for (offset.x = 0; offset.x < 5; offset.x++) {
+                const index = getTextureSheetIndex(
+                    (charCode % 16) * 6 + offset.x,
+                    64 + Math.floor(charCode / 16) * 8 + offset.y,
+                );
+                if (textureSheetImageDataList[index + 1] > 128) {
+                    tempPos.set(pos);
+                    tempPos.add(offset);
+                    this.setColor(tempPos, color);
+                }
+            }
+        }
+    }
+    
+    drawText(pos, color, text) {
+        pos = pos.copy();
+        for (let index = 0; index < text.length; index++) {
+            const charCode = text.charCodeAt(index);
+            this.drawCharacter(pos, color, charCode);
+            pos.x += 6;
+        }
     }
     
     toJson() {
@@ -427,8 +467,8 @@ class Panel {
         const maxBound = new Pos(-Infinity, -Infinity);
         vertexLocs.forEach((vertexLoc) => {
             if (vertexLoc.z < 0) {
-                canvasPos.x = Math.sign(vertexLoc.x) * Infinity;
-                canvasPos.y = Math.sign(vertexLoc.y) * Infinity;
+                canvasPos.x = Math.sign(vertexLoc.x) * 99999;
+                canvasPos.y = Math.sign(vertexLoc.y) * 99999;
             } else {
                 convertLocToCanvasPos(canvasPos, vertexLoc);
             }
@@ -662,8 +702,10 @@ const drawImageData = () => {
     context.putImageData(imageData, 0, 0);
 };
 
+const getTextureSheetIndex = (x, y) => (x + y * textureSheetWidth) * 4;
+
 const getTextureSheetColor = (x, y) => {
-    const index = (x + y * textureSheetWidth) * 4;
+    const index = getTextureSheetIndex(x, y);
     const r = textureSheetImageDataList[index];
     const g = textureSheetImageDataList[index + 1];
     const b = textureSheetImageDataList[index + 2];
