@@ -1,13 +1,10 @@
 
 import * as pathUtils from "path";
 import express from "express";
-import ostracodMultiplayer from "ostracod-multiplayer";
+import { ostracodMultiplayer, pageUtils } from "ostracod-multiplayer";
 
 import { projectPath } from "./constants.js";
 import { gameDelegate } from "./gameDelegate.js";
-
-const { pageUtils } = ostracodMultiplayer;
-const ostracodMultiplayerInstance = ostracodMultiplayer.ostracodMultiplayer;
 
 const router = express.Router();
 
@@ -24,7 +21,7 @@ router.get("/modelEditor", (req, res, next) => {
 });
 
 console.log("Starting Room Realm server...");
-const result = ostracodMultiplayerInstance.initializeServer(
+const result = ostracodMultiplayer.initializeServer(
     projectPath,
     gameDelegate,
     [router],

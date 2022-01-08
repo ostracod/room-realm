@@ -24,6 +24,60 @@
                 {
                     "name": "score",
                     "type": "BIGINT"
+                },
+                {
+                    "name": "shellPos",
+                    "type": "INT"
+                }
+            ]
+        },
+        {
+            "name": "Rooms",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "INT",
+                    "primaryKey": true
+                },
+                {
+                    "name": "shellPos",
+                    "type": "INT",
+                    "indexed": true
+                },
+                {
+                    "name": "doors",
+                    "type": "VARCHAR(80)"
+                },
+                {
+                    "name": "buttons",
+                    "type": "VARCHAR(40)"
+                },
+                {
+                    "name": "textures",
+                    "type": "VARCHAR(20)"
+                },
+                {
+                    "name": "decorations",
+                    "type": "VARCHAR(40)"
+                }
+            ]
+        },
+        {
+            "name": "DoorStates",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "INT",
+                    "primaryKey": true
+                },
+                {
+                    "name": "isLocked",
+                    "type": "TINYINT"
+                },
+                {
+                    "name": "missingButtonIndex",
+                    "type": "INT",
+                    "indexed": true
                 }
             ]
         }
